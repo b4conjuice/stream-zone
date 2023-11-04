@@ -44,7 +44,7 @@ export default function RootLayout({
         name='viewport'
         content='width=device-width, initial-scale=1, shrink-to-fit=no'
       /> */}
-      <meta charSet='utf-8' />
+      <meta name='theme-color' content='#15232d' />
       <link
         href='splash.png'
         media='(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)'
