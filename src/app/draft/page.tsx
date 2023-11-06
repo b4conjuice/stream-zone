@@ -583,3 +583,7 @@ export default function DraftPage() {
     </Main>
   )
 }
+
+// export const metadata = {
+//   title: `draft - stream zone`,
+// }
