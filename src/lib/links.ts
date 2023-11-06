@@ -11,6 +11,10 @@ const links = [
     href: '/team',
     text: 'team',
   },
+  {
+    href: '/schedule',
+    text: 'schedule',
+  },
 ]
 
 export default links
