@@ -195,7 +195,7 @@ export default function TeamPage() {
               setSelectedPlayer(null)
               setPlayers([...players, player])
               setSearch('')
-              const url = '/wl'
+              const url = '/team'
               router.push(url)
             }}
             className='relative mx-auto w-full max-w-lg divide-y divide-cb-dusty-blue overflow-hidden rounded-xl bg-cb-blue ring-1 ring-cb-mint'
@@ -206,7 +206,7 @@ export default function TeamPage() {
                 onChange={e => {
                   const { value } = e.target
                   setSearch(value)
-                  const url = `/wl${value ? `?q=${value}` : ''}`
+                  const url = `/team${value ? `?q=${value}` : ''}`
                   router.push(url)
                 }}
                 className='h-12 w-full border-0 bg-transparent placeholder-cb-yellow/75 focus:outline-0 focus:ring-0'
