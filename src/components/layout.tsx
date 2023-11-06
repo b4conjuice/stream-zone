@@ -23,9 +23,13 @@ const Layout = ({
     <>
       {withHeader && (
         <Header>
-          <Link href='/' className='hover:text-cb-pink'>
-            {DEFAULT_TITLE}
-          </Link>
+          {'/' === pathname ? (
+            <span>{DEFAULT_TITLE}</span>
+          ) : (
+            <Link href='/' className='hover:text-cb-pink'>
+              {DEFAULT_TITLE}
+            </Link>
+          )}
         </Header>
       )}
       {withNav && (
