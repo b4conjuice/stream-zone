@@ -13,6 +13,7 @@ import { Main } from '@/components/ui'
 import espnRank, { toString } from '@/data/espnRank'
 import useLocalStorage from '@/lib/useLocalStorage'
 import { type Player } from '@/lib/types'
+import { useSearchNBAPlayers } from '@/lib/useNBA'
 
 // const fetcher = (...args) => fetch(...args).then(res => res.json())
 
@@ -142,19 +143,45 @@ export default function TeamPage() {
     'stream-zone-players',
     []
   )
+  console.log({ players })
 
   // const results = useSearchNBAPlayers(search)
   const fuse = new Fuse(espnRank, {
     keys: [{ name: 'name', weight: 2 }, 'team', 'position'],
   })
 
+  // const results: Player[] = !search
+  //   ? []
+  //   : fuse.search(search.toLowerCase()).map(({ item }) => item)
+
+  const resultsFromAPI = useSearchNBAPlayers(search)
+
   const results: Player[] = !search
     ? []
-    : fuse.search(search.toLowerCase()).map(({ item }) => item)
+    : espnRank
+        .filter(espnPlayer => {
+          return resultsFromAPI.some(
+            apiPlayer =>
+              espnPlayer.name ===
+              `${apiPlayer.first_name} ${apiPlayer.last_name}`
+          )
+        })
+        .map(espnPlayer => {
+          const apiPlayer = resultsFromAPI.find(
+            apiPlayer =>
+              espnPlayer.name ===
+              `${apiPlayer.first_name} ${apiPlayer.last_name}`
+          )
+          return {
+            ...espnPlayer,
+            id: apiPlayer?.id ?? 0,
+          }
+        })
 
   console.log({
     search,
     results,
+    resultsFromAPI,
   })
 
   return (

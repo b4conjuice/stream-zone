@@ -6,6 +6,7 @@ const CURRENT_SEASON = 2023 // TODO
 const PER_PAGE = 100 // TODO
 
 const BALLDONTLIE_GAMES_API_URL = 'https://www.balldontlie.io/api/v1/games'
+const BALLDONTLIE_PLAYERS_API_URL = 'https://www.balldontlie.io/api/v1/players'
 
 type Game = {
   id: number
@@ -20,11 +21,11 @@ type Game = {
   date: string
 }
 
-type NBASchedule = {
+type NBAScheduleResponse = {
   data: Game[]
 }
 
-const fetchNBASchedule: Fetcher<NBASchedule, string> = (...args) =>
+const fetchNBASchedule: Fetcher<NBAScheduleResponse, string> = (...args) =>
   fetcher(...args)
 
 export const useNBASchedule = (params: {
@@ -58,6 +59,57 @@ export const useNBASchedule = (params: {
   return {
     data,
   }
+}
+
+export const useNBAPlayer = (params: { id: number; season: number }) => {
+  const { id, season } = params
+  const { data: player } = useSWR(
+    id ? `${BALLDONTLIE_PLAYERS_API_URL}/${id}` : null,
+    fetcher
+  )
+  return player
+  // const { data: seasonStats } = useSwr(
+  //   id
+  //     ? `https://www.balldontlie.io/api/v1/season_averages?&seasons[]=${season}&player_ids[]=${id}&start_date=${startDate}`
+  //     : null,
+  //   fetcher
+  // )
+  // const { data: stats } = useSwr(
+  //   id
+  //     ? `https://www.balldontlie.io/api/v1/stats?&per_page=100&seasons[]=${season}&player_ids[]=${id}&start_date=${startDate}`
+  //     : null,
+  //   fetcher
+  // )
+  // return player && stats && seasonStats
+  //   ? {
+  //       ...player,
+  //       season: seasonStats.data[0],
+  //       stats: stats.data.sort(
+  //         (b, a) => new Date(a.game.date) - new Date(b.game.date)
+  //       ),
+  //     }
+  //   : undefined
+}
+
+type PlayerResponse = {
+  id: number
+  first_name: string
+  last_name: string
+}
+
+type PlayersSearchResponse = {
+  data: PlayerResponse[]
+}
+
+const searchNBAPlayers: Fetcher<PlayersSearchResponse, string> = (...args) =>
+  fetcher(...args)
+
+export const useSearchNBAPlayers = (name: string) => {
+  const { data } = useSWR(
+    name ? `https://www.balldontlie.io/api/v1/players?search=${name}` : null,
+    searchNBAPlayers
+  )
+  return data?.data ?? []
 }
 
 // export const useNBASchedule = (options = {}) => {
