@@ -11,14 +11,17 @@ const BALLDONTLIE_PLAYERS_API_URL = 'https://www.balldontlie.io/api/v1/players'
 type Game = {
   id: number
   visitor_team: {
+    id: number
     abbreviation: string
   }
   home_team: {
+    id: number
     abbreviation: string
   }
   visitor_team_score: number
   home_team_score: number
   date: string
+  status: string
 }
 
 type NBAScheduleResponse = {
@@ -49,7 +52,9 @@ export const useNBASchedule = (params: {
     if (typeof team === 'number') {
       searchParams.append('team_ids[]', String(team))
     } else {
-      searchParams.append('team_ids[]', team.join(','))
+      team.forEach(teamId => {
+        searchParams.append('team_ids[]', String(teamId))
+      })
     }
   }
 
@@ -95,6 +100,9 @@ type PlayerResponse = {
   id: number
   first_name: string
   last_name: string
+  team: {
+    id: number
+  }
 }
 
 type PlayersSearchResponse = {

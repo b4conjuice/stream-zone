@@ -3,17 +3,32 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Combobox } from '@headlessui/react'
-import { TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/solid'
+import {
+  TrashIcon,
+  MagnifyingGlassIcon,
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@heroicons/react/24/solid'
 import classnames from 'classnames'
 import Fuse from 'fuse.js'
 // import useSwr, { type Fetcher } from 'swr'
+import {
+  addDays,
+  eachDayOfInterval,
+  endOfWeek,
+  isSameDay,
+  startOfWeek,
+  subDays,
+} from 'date-fns'
 
 import Layout from '@/components/layout'
 import { Main } from '@/components/ui'
 import espnRank, { toString } from '@/data/espnRank'
 import useLocalStorage from '@/lib/useLocalStorage'
 import { type Player } from '@/lib/types'
-import { useSearchNBAPlayers } from '@/lib/useNBA'
+import { useSearchNBAPlayers, useNBASchedule } from '@/lib/useNBA'
+import { format } from 'date-fns'
 
 // const fetcher = (...args) => fetch(...args).then(res => res.json())
 
@@ -61,6 +76,55 @@ import { useSearchNBAPlayers } from '@/lib/useNBA'
 //   return data?.data || []
 // }
 
+const Table = (params: {
+  leftHeaders: Array<string | null>
+  rows: Array<Array<React.ReactNode | null | undefined> | null | undefined>
+  leftHeaderClassName?: string
+}) => {
+  const { leftHeaders, rows, leftHeaderClassName } = params
+  return (
+    <div className='flex w-full'>
+      <div className={classnames(leftHeaderClassName)}>
+        <table className='w-full table-fixed border-r-4 border-gray-400'>
+          <tbody>
+            {leftHeaders.map(leftHeader =>
+              leftHeader ? (
+                <tr key={leftHeader} className='odd:bg-cb-blue'>
+                  <td className='py-1 text-center'>{leftHeader}</td>
+                </tr>
+              ) : null
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className='flex flex-grow overflow-x-auto'>
+        <table className='w-full'>
+          <tbody>
+            {rows?.map((row, index) => (
+              <tr key={index} className='px-1 odd:bg-cb-blue'>
+                {row && row.length > 0 ? (
+                  row.map((column, colindex) => (
+                    <td
+                      key={colindex}
+                      className='max-w-sm truncate px-1 py-1 text-center'
+                    >
+                      {column}
+                    </td>
+                  ))
+                ) : (
+                  <td className='max-w-sm truncate px-1 py-1 text-center'>
+                    --
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 const Depth = ({ team }: { team: Player[] }) => {
   const positions = ['PG', 'SG', 'SF', 'PF', 'C']
   const getPlayersByPosition = (position: string) => {
@@ -78,54 +142,38 @@ const Depth = ({ team }: { team: Player[] }) => {
       ? `${playersByPosition.join(' ')} (${playersByPosition.length})`
       : ''
   }
-  return (
-    <div className='flex w-full'>
-      <div className='w-12'>
-        <table className='w-full table-fixed border-r-4 border-gray-400'>
-          <tbody>
-            {positions.map(position =>
-              getPlayersByPosition(position) ? (
-                <tr key={position} className='odd:bg-cb-blue'>
-                  <td className='py-1 text-center'>{position}</td>
-                </tr>
-              ) : null
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className='flex flex-grow overflow-x-auto'>
-        <table className='w-full'>
-          <tbody>
-            {positions.map(position =>
-              getPlayersByPosition(position) ? (
-                <tr key={position} className='px-1 odd:bg-cb-blue'>
-                  {team
-                    .filter(player => {
-                      const { position: playerPosition } = player
-                      if (typeof playerPosition === 'string') {
-                        return playerPosition.includes(position)
-                      } else {
-                        return playerPosition.some(pos => pos === position)
-                      }
-                    })
-                    .map(player => (
-                      <td
-                        key={player.name}
-                        className='max-w-sm truncate px-1 py-1 text-center'
-                      >
-                        <a className='hover:text-cb-yellow'>
-                          {toString(player, { short: true })}
-                        </a>
-                      </td>
-                    ))}
-                </tr>
-              ) : null
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+  const rows = positions.map(position =>
+    getPlayersByPosition(position)
+      ? team
+          .filter(player => {
+            const { position: playerPosition } = player
+            if (typeof playerPosition === 'string') {
+              return playerPosition.includes(position)
+            } else {
+              return playerPosition.some(pos => pos === position)
+            }
+          })
+          .map(player => (
+            <a key={player.name} className='hover:text-cb-yellow'>
+              {toString(player, { short: true })}
+            </a>
+          ))
+      : null
   )
+  return (
+    <Table
+      leftHeaders={positions.map(position =>
+        getPlayersByPosition(position) ? position : null
+      )}
+      rows={rows}
+      leftHeaderClassName='w-12'
+    />
+  )
+}
+
+type PlayerFromAPI = Player & {
+  id: number
+  teamId: number
 }
 
 export default function TeamPage() {
@@ -139,11 +187,37 @@ export default function TeamPage() {
     }
   }, [query])
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
-  const [players, setPlayers] = useLocalStorage<Player[]>(
-    'stream-zone-players',
+  const [players, setPlayers] = useLocalStorage<PlayerFromAPI[]>(
+    'sz-team-players',
     []
   )
-  console.log({ players })
+  const [scheduleType, setScheduleType] = useLocalStorage<'daily' | 'weekly'>(
+    'sz-team-scheduleType',
+    'daily'
+  )
+
+  const teamIds = players ? players?.map(({ teamId }) => teamId) : undefined
+  const today = new Date()
+  const [date, setDate] = useState(today)
+  const formattedDate = format(date, 'yyyy-MM-dd')
+  const startDateOfWeek = startOfWeek(date, { weekStartsOn: 1 })
+  const formattedStartOfWeek = format(startDateOfWeek, 'yyyy-MM-dd')
+  const endDateOfWeek = endOfWeek(date, { weekStartsOn: 1 })
+  const formattedEndOfWeek = format(endDateOfWeek, 'yyyy-MM-dd')
+  const startDate =
+    scheduleType === 'weekly' ? formattedStartOfWeek : formattedDate
+  const endDate = scheduleType === 'weekly' ? formattedEndOfWeek : undefined
+
+  const { data: games } = useNBASchedule({
+    start: startDate,
+    end: endDate,
+    team: teamIds,
+  })
+  const days = eachDayOfInterval({
+    start: startDateOfWeek,
+    end: endDateOfWeek,
+  })
+  console.log({ games, days })
 
   // const results = useSearchNBAPlayers(search)
   const fuse = new Fuse(espnRank, {
@@ -175,14 +249,15 @@ export default function TeamPage() {
           return {
             ...espnPlayer,
             id: apiPlayer?.id ?? 0,
+            teamId: apiPlayer?.team?.id ?? 0,
           }
         })
 
-  console.log({
-    search,
-    results,
-    resultsFromAPI,
-  })
+  // console.log({
+  //   search,
+  //   results,
+  //   resultsFromAPI,
+  // })
 
   return (
     <Layout>
@@ -218,7 +293,7 @@ export default function TeamPage() {
           <Combobox
             as='div'
             value={selectedPlayer}
-            onChange={(player: Player) => {
+            onChange={(player: PlayerFromAPI) => {
               setSelectedPlayer(null)
               setPlayers([...players, player])
               setSearch('')
@@ -284,29 +359,213 @@ export default function TeamPage() {
               <p className='p-4 text-sm'>no results found</p>
             )}
           </Combobox>
+          <div className='flex justify-between'>
+            <label
+              htmlFor='checked'
+              className='inline-flex cursor-pointer items-center justify-center space-x-3'
+            >
+              <span
+                className={scheduleType === 'weekly' ? 'text-gray-500' : ''}
+              >
+                daily
+              </span>
+              <span className='relative'>
+                <span className='block h-6 w-10 rounded-full bg-cb-yellow shadow-inner' />
+                <span
+                  className={`focus-within:shadow-outline absolute inset-y-0 left-0 ml-1 mt-1 block h-4 w-4 rounded-full bg-cb-blue shadow transition-transform duration-300 ease-in-out ${
+                    scheduleType === 'weekly'
+                      ? 'translate-x-full transform'
+                      : ''
+                  }`}
+                >
+                  <input
+                    id='checked'
+                    type='checkbox'
+                    checked
+                    onChange={() =>
+                      setScheduleType(
+                        scheduleType === 'weekly' ? 'daily' : 'weekly'
+                      )
+                    }
+                    className='absolute h-0 w-0 opacity-0'
+                  />
+                </span>
+              </span>
+              <span className={scheduleType === 'daily' ? 'text-gray-500' : ''}>
+                weekly
+              </span>
+            </label>
+            <div className='flex items-center'>
+              <input
+                type='date'
+                className='bg-cb-blue'
+                value={formattedDate}
+                onChange={e => {
+                  const newDate = e.target.value
+                  const [year, month, day] = newDate
+                    .split('-')
+                    .map(d => parseInt(d, 10))
+                  if (year && month) {
+                    setDate(new Date(year, month - 1, day))
+                  }
+                }}
+              />
+              <button
+                type='button'
+                className='px-2'
+                onClick={() => {
+                  setDate(subDays(date, 1))
+                }}
+              >
+                <ChevronLeftIcon className='h-6 w-6 text-cb-yellow' />
+              </button>
+              <button
+                type='button'
+                className='px-2 disabled:pointer-events-none disabled:opacity-25'
+                disabled={isSameDay(date, today)}
+              >
+                <CalendarIcon
+                  className='h-6 w-6 text-cb-yellow'
+                  onClick={() => {
+                    setDate(today)
+                  }}
+                />
+              </button>
+              <button
+                type='button'
+                className='px-2'
+                onClick={() => {
+                  setDate(addDays(date, 1))
+                }}
+              >
+                <ChevronRightIcon className='h-6 w-6 text-cb-yellow' />
+              </button>
+            </div>
+          </div>
+          {players &&
+            players.length > 0 &&
+            (scheduleType === 'weekly' ? (
+              <Table
+                leftHeaders={[
+                  'player',
+                  ...players.map(
+                    player =>
+                      `${player.name} ${
+                        typeof player.position === 'string'
+                          ? player.position
+                          : player.position.join(', ')
+                      }`
+                  ),
+                ]}
+                rows={[
+                  days.map(day => format(day, 'EEE M/d')),
+                  ...players.map(player =>
+                    days.map(day => {
+                      const game = games?.data.find(
+                        game =>
+                          (game.home_team.id === player.teamId ||
+                            game.visitor_team.id === player.teamId) &&
+                          isSameDay(new Date(game.date.replace('Z', '')), day)
+                      )
+                      return game
+                        ? `${
+                            game.home_team.id === player.teamId ? 'VS' : '@'
+                          } ${
+                            game.home_team.id === player.teamId
+                              ? game.visitor_team.abbreviation
+                              : game.home_team.abbreviation
+                          } ${
+                            game.status === 'Final'
+                              ? `${game.visitor_team_score}-${game.home_team_score}`
+                              : format(new Date(game.status), 'h:mm a')
+                          }`
+                        : '--'
+                    })
+                  ),
+                ]}
+                leftHeaderClassName='w-64'
+              />
+            ) : (
+              <Table
+                leftHeaders={players.map(
+                  player =>
+                    `${player.name} ${
+                      typeof player.position === 'string'
+                        ? player.position
+                        : player.position.join(', ')
+                    }`
+                )}
+                rows={players.map(
+                  player =>
+                    games?.data
+                      .filter(
+                        game =>
+                          game.home_team.id === player.teamId ||
+                          game.visitor_team.id === player.teamId
+                      )
+                      .map(
+                        game =>
+                          `${
+                            game.home_team.id === player.teamId ? 'VS' : '@'
+                          } ${
+                            game.home_team.id === player.teamId
+                              ? game.visitor_team.abbreviation
+                              : game.home_team.abbreviation
+                          } ${
+                            game.status === 'Final'
+                              ? `${game.visitor_team_score}-${game.home_team_score}`
+                              : format(new Date(game.status), 'h:mm a')
+                          }`
+                      )
+                )}
+                leftHeaderClassName='w-64'
+              />
+            ))}
           {players && players.length > 0 && (
             <ul className='divide-y divide-cb-dusty-blue'>
-              {players.map((player, index) => (
-                <li
-                  key={player.name}
-                  className='flex items-center justify-between space-x-4 p-2'
-                >
-                  {player.name} {player.team}{' '}
-                  {typeof player.position === 'string'
-                    ? player.position
-                    : player.position.join(', ')}
-                  <button
-                    type='button'
-                    onClick={() => {
-                      const newPlayers = [...players]
-                      newPlayers.splice(index, 1)
-                      setPlayers(newPlayers)
-                    }}
+              {players.map((player, index) => {
+                const game = games?.data.find(
+                  game =>
+                    game.home_team.id === player.teamId ||
+                    game.visitor_team.id === player.teamId
+                )
+                const gameText = game
+                  ? `${game.visitor_team.abbreviation} @ ${
+                      game.home_team.abbreviation
+                    } ${
+                      game.status === 'Final'
+                        ? `${game.visitor_team_score}-${game.home_team_score}`
+                        : format(new Date(game.status), 'h:mm a')
+                    }`
+                  : ''
+                return (
+                  <li
+                    key={player.name}
+                    className='flex items-center justify-between p-2'
                   >
-                    <TrashIcon className='h-6 w-6 text-red-600' />
-                  </button>
-                </li>
-              ))}
+                    <span>
+                      {player.name} {player.team}{' '}
+                      {typeof player.position === 'string'
+                        ? player.position
+                        : player.position.join(', ')}
+                    </span>
+
+                    <div className='flex items-center space-x-2'>
+                      {game && <span>{gameText}</span>}
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const newPlayers = [...players]
+                          newPlayers.splice(index, 1)
+                          setPlayers(newPlayers)
+                        }}
+                      >
+                        <TrashIcon className='h-6 w-6 text-red-600' />
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
