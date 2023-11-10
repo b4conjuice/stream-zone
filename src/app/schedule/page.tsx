@@ -1,17 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import format from 'date-fns/format'
-
-import Layout from '@/components/layout'
-import { Main } from '@/components/ui'
-import { useNBASchedule } from '@/lib/useNBA'
 import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/solid'
+import format from 'date-fns/format'
 import { addDays, isSameDay, subDays } from 'date-fns'
+
+import Layout from '@/components/layout'
+import { Main } from '@/components/ui'
+import { useNBASchedule } from '@/lib/useNBA'
 import useLocalStorage from '@/lib/useLocalStorage'
 
 export default function SchedulePage() {
