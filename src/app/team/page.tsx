@@ -300,7 +300,7 @@ export default function TeamPage() {
               const url = '/team'
               router.push(url)
             }}
-            className='relative mx-auto w-full max-w-lg divide-y divide-cb-dusty-blue overflow-hidden rounded-xl bg-cb-blue ring-1 ring-cb-mint'
+            className='relative mx-auto w-full divide-y divide-cb-dusty-blue overflow-hidden rounded-xl bg-cb-blue ring-1 ring-cb-mint'
           >
             <div className='flex items-center space-x-2 px-4'>
               <MagnifyingGlassIcon className='h-6 w-6 text-cb-yellow' />
@@ -477,7 +477,9 @@ export default function TeamPage() {
                           } ${
                             game.status === 'Final'
                               ? `${game.visitor_team_score}-${game.home_team_score}`
-                              : format(new Date(game.status), 'h:mm a')
+                              : game.status.includes(':')
+                              ? format(new Date(game.status), 'h:mm a')
+                              : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
                           }`
                         : '--'
                     })
@@ -514,7 +516,9 @@ export default function TeamPage() {
                           } ${
                             game.status === 'Final'
                               ? `${game.visitor_team_score}-${game.home_team_score}`
-                              : format(new Date(game.status), 'h:mm a')
+                              : game.status.includes(':')
+                              ? format(new Date(game.status), 'h:mm a')
+                              : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
                           }`
                       )
                 )}
@@ -535,7 +539,9 @@ export default function TeamPage() {
                     } ${
                       game.status === 'Final'
                         ? `${game.visitor_team_score}-${game.home_team_score}`
-                        : format(new Date(game.status), 'h:mm a')
+                        : game.status.includes(':')
+                        ? format(new Date(game.status), 'h:mm a')
+                        : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
                     }`
                   : ''
                 return (

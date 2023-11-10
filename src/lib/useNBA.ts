@@ -22,6 +22,7 @@ type Game = {
   home_team_score: number
   date: string
   status: string
+  time: string | null
 }
 
 type NBAScheduleResponse = {
