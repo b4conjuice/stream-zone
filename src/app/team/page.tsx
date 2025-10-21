@@ -29,6 +29,8 @@ import useLocalStorage from '@/lib/useLocalStorage'
 import { type Player } from '@/lib/types'
 import { useSearchNBAPlayers, useNBASchedule } from '@/lib/useNBA'
 import { format } from 'date-fns'
+import Modal from '@/components/modal'
+import Button from '@/components/ui/design/button'
 
 // const fetcher = (...args) => fetch(...args).then(res => res.json())
 
@@ -176,7 +178,16 @@ type PlayerFromAPI = Player & {
   teamId: number
 }
 
+type Team = {
+  name: string
+  players: Player[]
+}
+
 export default function TeamPage() {
+  const [isSaveTeamModalOpen, setIsSaveTeamModalOpen] = useState(false)
+  const [isLoadTeamModalOpen, setIsLoadTeamModalOpen] = useState(false)
+  const [newTeamName, setNewTeamName] = useState('')
+  const [teams, setTeams] = useLocalStorage<Team[]>('sz-team-teams', [])
   const router = useRouter()
   const searchParams = useSearchParams()
   const query = searchParams.get('q')
@@ -224,34 +235,34 @@ export default function TeamPage() {
     keys: [{ name: 'name', weight: 2 }, 'team', 'position'],
   })
 
-  // const results: Player[] = !search
-  //   ? []
-  //   : fuse.search(search.toLowerCase()).map(({ item }) => item)
+  const results: Player[] = !search
+    ? []
+    : fuse.search(search.toLowerCase()).map(({ item }) => item)
 
   const resultsFromAPI = useSearchNBAPlayers(search)
 
-  const results: Player[] = !search
-    ? []
-    : espnRank
-        .filter(espnPlayer => {
-          return resultsFromAPI.some(
-            apiPlayer =>
-              espnPlayer.name ===
-              `${apiPlayer.first_name} ${apiPlayer.last_name}`
-          )
-        })
-        .map(espnPlayer => {
-          const apiPlayer = resultsFromAPI.find(
-            apiPlayer =>
-              espnPlayer.name ===
-              `${apiPlayer.first_name} ${apiPlayer.last_name}`
-          )
-          return {
-            ...espnPlayer,
-            id: apiPlayer?.id ?? 0,
-            teamId: apiPlayer?.team?.id ?? 0,
-          }
-        })
+  // const results: Player[] = !search
+  //   ? []
+  //   : espnRank
+  //       .filter(espnPlayer => {
+  //         return resultsFromAPI.some(
+  //           apiPlayer =>
+  //             espnPlayer.name ===
+  //             `${apiPlayer.first_name} ${apiPlayer.last_name}`
+  //         )
+  //       })
+  //       .map(espnPlayer => {
+  //         const apiPlayer = resultsFromAPI.find(
+  //           apiPlayer =>
+  //             espnPlayer.name ===
+  //             `${apiPlayer.first_name} ${apiPlayer.last_name}`
+  //         )
+  //         return {
+  //           ...espnPlayer,
+  //           id: apiPlayer?.id ?? 0,
+  //           teamId: apiPlayer?.team?.id ?? 0,
+  //         }
+  //       })
 
   // console.log({
   //   search,
@@ -263,6 +274,37 @@ export default function TeamPage() {
     <Layout>
       <Main className='space-y-2 px-2'>
         <div className='flex flex-col space-y-4'>
+          <div className='flex space-x-4'>
+            <button
+              type='button'
+              className='text-cb-yellow hover:text-cb-yellow/75 disabled:pointer-events-none disabled:opacity-25'
+              onClick={() => {
+                setIsSaveTeamModalOpen(true)
+              }}
+              disabled={!players?.length}
+            >
+              save team
+            </button>
+            <button
+              type='button'
+              className='text-cb-yellow hover:text-cb-yellow/75 disabled:pointer-events-none disabled:opacity-25'
+              onClick={() => {
+                setIsLoadTeamModalOpen(true)
+              }}
+            >
+              load team
+            </button>
+            <button
+              type='button'
+              className='text-cb-yellow hover:text-cb-yellow/75 disabled:pointer-events-none disabled:opacity-25'
+              onClick={() => {
+                setPlayers([])
+              }}
+              disabled={!players?.length}
+            >
+              new team
+            </button>
+          </div>
           {players && players.length > 0 && <Depth team={players} />}
           {/* <input
             type='text'
@@ -478,8 +520,8 @@ export default function TeamPage() {
                             game.status === 'Final'
                               ? `${game.visitor_team_score}-${game.home_team_score}`
                               : game.status.includes(':')
-                              ? format(new Date(game.status), 'h:mm a')
-                              : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
+                                ? format(new Date(game.status), 'h:mm a')
+                                : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
                           }`
                         : '--'
                     })
@@ -497,30 +539,27 @@ export default function TeamPage() {
                         : player.position.join(', ')
                     }`
                 )}
-                rows={players.map(
-                  player =>
-                    games?.data
-                      .filter(
-                        game =>
-                          game.home_team.id === player.teamId ||
-                          game.visitor_team.id === player.teamId
-                      )
-                      .map(
-                        game =>
-                          `${
-                            game.home_team.id === player.teamId ? 'VS' : '@'
-                          } ${
-                            game.home_team.id === player.teamId
-                              ? game.visitor_team.abbreviation
-                              : game.home_team.abbreviation
-                          } ${
-                            game.status === 'Final'
-                              ? `${game.visitor_team_score}-${game.home_team_score}`
-                              : game.status.includes(':')
+                rows={players.map(player =>
+                  games?.data
+                    .filter(
+                      game =>
+                        game.home_team.id === player.teamId ||
+                        game.visitor_team.id === player.teamId
+                    )
+                    .map(
+                      game =>
+                        `${game.home_team.id === player.teamId ? 'VS' : '@'} ${
+                          game.home_team.id === player.teamId
+                            ? game.visitor_team.abbreviation
+                            : game.home_team.abbreviation
+                        } ${
+                          game.status === 'Final'
+                            ? `${game.visitor_team_score}-${game.home_team_score}`
+                            : game.status.includes(':')
                               ? format(new Date(game.status), 'h:mm a')
                               : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
-                          }`
-                      )
+                        }`
+                    )
                 )}
                 leftHeaderClassName='w-64'
               />
@@ -540,8 +579,8 @@ export default function TeamPage() {
                       game.status === 'Final'
                         ? `${game.visitor_team_score}-${game.home_team_score}`
                         : game.status.includes(':')
-                        ? format(new Date(game.status), 'h:mm a')
-                        : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
+                          ? format(new Date(game.status), 'h:mm a')
+                          : `${game.visitor_team_score}-${game.home_team_score} ${game.time}`
                     }`
                   : ''
                 return (
@@ -576,6 +615,88 @@ export default function TeamPage() {
           )}
         </div>
       </Main>
+      {teams && (
+        <>
+          <Modal
+            isOpen={isSaveTeamModalOpen}
+            setIsOpen={setIsSaveTeamModalOpen}
+            title='save team'
+          >
+            <ul className='flex flex-col gap-4'>
+              {teams.map((team, index) => (
+                <li key={team.name}>
+                  <Button
+                    onClick={() => {
+                      const teamToBeUpdated = teams[index]
+                      if (teamToBeUpdated) {
+                        teamToBeUpdated.players = players
+                        teams[index] = teamToBeUpdated
+                        setTeams(teams)
+                        setIsSaveTeamModalOpen(false)
+                      }
+                    }}
+                  >
+                    {team.name}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            <div className='flex space-x-4'>
+              <input
+                value={newTeamName}
+                onChange={e => {
+                  setNewTeamName(e.target.value)
+                }}
+                className='w-full bg-cb-blue p-2'
+              />
+              <Button
+                onClick={() => {
+                  setTeams([...teams, { name: newTeamName, players: [] }])
+                  setNewTeamName('')
+                  setIsSaveTeamModalOpen(false)
+                }}
+                disabled={newTeamName === ''}
+                className='disabled:pointer-events-none disabled:opacity-25'
+              >
+                save
+              </Button>
+            </div>
+          </Modal>
+          <Modal
+            isOpen={isLoadTeamModalOpen}
+            setIsOpen={setIsLoadTeamModalOpen}
+            title='load team'
+          >
+            <ul className='flex flex-col gap-4'>
+              {teams.map((team, index) => (
+                <li key={team.name}>
+                  <Button
+                    onClick={() => {
+                      const teamToBeLoaded = teams[index]
+                      if (teamToBeLoaded) {
+                        const players = teamToBeLoaded.players.map(player => {
+                          const { name, team, position } = player
+                          return {
+                            name,
+                            team,
+                            position,
+                            id: 1, // TODO: remove work around
+                            teamId: 1, // TODO: remove work around
+                          }
+                        })
+                        setPlayers(players)
+                        setIsLoadTeamModalOpen(false)
+                      }
+                    }}
+                  >
+                    {team.name}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Modal>
+        </>
+      )}
     </Layout>
   )
 }
