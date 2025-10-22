@@ -23,6 +23,9 @@ dependencies:
   '@types/react-beautiful-dnd':
     specifier: ^13.1.5
     version: 13.1.8
+  classnames:
+    specifier: ^2.5.1
+    version: 2.5.1
   date-fns:
     specifier: ^2.30.0
     version: 2.30.0
